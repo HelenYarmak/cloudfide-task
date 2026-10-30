@@ -19,6 +19,7 @@ cp .env.example .env          # then add your OPENAI_API_KEY to .env
 | Conversation with memory | `python -m agent.cli` |
 | Tests (no key or network needed) | `python -m pytest` |
 | Evaluation (writes `eval/results.md`) | `python -m eval.run_eval` |
+| Evaluation on the unseen questions | `python -m eval.run_eval --questions eval/holdout.yaml --out eval/results-holdout.md` |
 | Evaluation with another model | `python -m eval.run_eval --model NAME --out eval/results-NAME.md` |
 
 On Windows, a project in a deeply nested folder can make `pip install` fail on the long paths inside
@@ -95,6 +96,12 @@ on a search finding it.
 
 The price rules reproduce the rental price and deposit of all 10 example bookings (there is a test for this).
 
+### Extras
+
+- Conversation memory: done, within one running process.
+- Comparison of models: done, see the results below.
+- GitHub Actions workflow: not done.
+
 ## Evaluation
 
 There are two sets of questions:
@@ -102,8 +109,9 @@ There are two sets of questions:
 - `eval/questions.yaml`, 20 questions: documents, price arithmetic, refunds (including exact 48 and 24 hour
   limits, a voucher and a follow-up question), unknown bookings, refusals and a prompt injection. I changed
   the agent while looking at these results, so this score is too kind.
-- `eval/holdout.yaml`, 12 questions written afterwards. Nothing was changed after running them, so this is
-  the more honest score: `python -m eval.run_eval --questions eval/holdout.yaml --out eval/results-holdout.md`.
+- `eval/holdout.yaml`, 12 questions written afterwards. I did not tune the agent on their results, so this
+  is the more honest score. These results were last run before conversation memory was added, which changed
+  the agent loop, and they have not been run again since.
 
 `eval/run_eval.py` checks, for each question, the tools called, the required amounts and text, forbidden
 text and the staff contact. On every answer it also checks that each EUR amount appears in a tool result
@@ -129,6 +137,13 @@ Final scores, in `eval/results.md` and `eval/results-holdout.md` for `gpt-5.4-mi
   covers late fees. This breaks the rule that the model does not produce amounts, and the check on every
   answer caught it. A `calculate_late_fee` tool would fix it.
 
+**What passes but should not:**
+
+- `change-too-late`: the agent tells the customer to ask the staff to move CW-1003. The rules say that changes
+  are not possible less than 24 hours before the start, and that the customer has to cancel and book again.
+  The check passes because it accepts "can't", and the answer says "I can't move or change bookings myself".
+  So the real score on this set is closer to 9 of 12.
+
 **What failed along the way, on the tuning set:**
 
 | Failure | Cause | What I tried | Result |
@@ -146,51 +161,31 @@ worked where instructions did not.
 ### What the evaluation cannot tell
 
 The checks look at text, so a correct answer worded differently can fail, and a wrong answer containing
-the right words can pass. For example, on the unseen set `refund-already-cancelled` looks only for the
-number 0, and the storm answer from `gpt-5.4-nano` passed although it added an unrequested refund
+the right words can pass. For example, `change-too-late` above passes on the wrong wording,
+`refund-already-cancelled` looks only for the number 0, `take-bike-abroad` accepts the letters "no" anywhere
+in the answer, and the storm answer from `gpt-5.4-nano` passed although it added an unrequested refund
 calculation. The model can still vary between runs even at temperature 0, and the sets are small.
-
-## How I used AI coding assistants
-
-TODO: review and put this in your own words, and add your own examples.
-
-I used Claude Code (in the Claude desktop app) to analyse the assignment, calculate the expected refunds,
-write the code and tests, and draft this document. Its output needed changes:
-
-- **A test that blamed the wrong code.** The loop limit test reused one `AIMessage` object for every model
-  reply. The graph then stopped after 2 model calls and returned raw tool JSON instead of hitting the limit.
-  The failing test showed this. A small debug script showed the cause: `add_messages` replaces a message
-  whose `id` it already has, and the reused object kept its `id`. A real model sends new messages, and with
-  those the limit worked. The fix was in the test, which now also checks for exactly 8 model calls.
-- **A test that did not test the limit.** The first version of the 48 hour limit test could not express
-  "48 hours and 1 minute before the start", because that time is before the fixed current date, which the
-  tool rejects. It was rewritten to pass an earlier `now` to the function.
-- **Evaluation checks that were wrong.** The checks written with the assistant failed correct answers, for
-  example because of the typographic apostrophe in "couldn’t". I noticed by reading the actual answers
-  instead of only the score.
-- **A prompt change that made things worse.** A suggested prompt rule for the season turned an imprecise
-  answer into a confidently wrong one. The evaluation showed it, and the fix was a tool instead.
-- **A score that looked better than it was.** After tuning, the score was 20 of 20. That was measured on the
-  questions used for tuning, so I added the unseen set, which scored 10 of 12.
-- **A recommendation I did not follow.** The assistant advised against a framework. I chose LangGraph
-  because I have some experience with it, and kept the tools free of it so the decision stays cheap to change.
 
 ## Limitations
 
 - Anyone who knows a booking number can see that booking: there is no customer identification.
 - The agent only gives information. It cannot cancel or change a booking.
-- Prices and refund rules are written in code as well as in the Markdown files, so a change has to be made
-  in both places. No test compares them with the documents, apart from the example bookings.
+- Prices, refund rules and opening hours are written in code as well as in the Markdown files, so a change
+  has to be made in both places. No test compares them with the documents, apart from the example bookings.
 - Search is keyword-based. It cannot find the shop's location today (see the evaluation), the synonym list
   is short, and queries have to be in English (the prompt tells the model to translate them).
 - No tool covers late return fees, so the model calculates those itself.
+- The agent can send a customer to the staff to change a booking when the rules already say it is too late.
 - The current date is fixed and the time zone is a fixed UTC+02:00, as the assignment asks.
 - Memory lasts only as long as the process.
 
 ## What I would do next
 
-- Fix the two remaining failures: better search (embeddings, or indexing the question headings together
-  with a synonym such as "location"), and a `calculate_late_fee` tool. Then write new unseen questions.
+- Fix the remaining failures: better search (embeddings, or indexing the question headings together with a
+  synonym such as "location"), a `calculate_late_fee` tool, and a prompt rule for late booking changes. Then
+  write new unseen questions.
+- Make the weak checks stricter, starting with `change-too-late` and `take-bike-abroad`.
+- Add a GitHub Actions workflow that runs the tests on every push.
 - Find out why `gpt-4o-mini` answers in Polish, instead of only avoiding that model.
 - Add an LLM judge for answers that text checks cannot judge well.
 - Use many more questions, so that differences between models mean something.

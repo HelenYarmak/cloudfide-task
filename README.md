@@ -1,6 +1,12 @@
-# CityWheels help desk — base data
+# CityWheels help desk
 
-CityWheels is a made-up bike rental shop. These files hold the data for its help desk agent. There is no code here: you write it.
+A command-line AI agent for a made-up bike rental shop. See [SOLUTION.md](SOLUTION.md) for how to install and run it, how it works and the evaluation results.
+
+Quick start: `pip install -r requirements.txt`, copy `.env.example` to `.env`, add your key, then run `python -m agent.cli`.
+
+## Data
+
+The files below hold the data for the agent.
 
 ## Files
 
