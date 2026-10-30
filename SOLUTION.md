@@ -16,7 +16,7 @@ cp .env.example .env          # then add your OPENAI_API_KEY to .env
 | What | Command |
 | --- | --- |
 | One question | `python -m agent.cli "How much is an e-bike for a whole day?"` |
-| Several questions, each answered on its own | `python -m agent.cli` |
+| Conversation with memory | `python -m agent.cli` |
 | Tests (no key or network needed) | `python -m pytest` |
 | Evaluation (writes `eval/results.md`) | `python -m eval.run_eval` |
 | Evaluation with another model | `python -m eval.run_eval --model NAME --out eval/results-NAME.md` |
@@ -52,7 +52,8 @@ START -> agent -> (tool calls?) -- yes --> tools -> agent -> ...
 - `tools_condition` ends the loop when the model replies without tool calls.
 
 What LangGraph does for us: the loop itself, the step limit (`recursion_limit`), running tools and
-turning bad tool calls into messages the model can read. The graph is written by hand instead of using a prebuilt agent so that the loop
+turning bad tool calls into messages the model can read, and memory per conversation (`MemorySaver`
+with a `thread_id`). The graph is written by hand instead of using a prebuilt agent so that the loop
 stays visible and easy to change.
 
 When the step limit is reached (15 steps, so 8 model calls), `ask()` returns a fixed message with the
@@ -98,8 +99,8 @@ The price rules reproduce the rental price and deposit of all 10 example booking
 
 There are two sets of questions:
 
-- `eval/questions.yaml`, 19 questions: documents, price arithmetic, refunds (including exact 48 and 24 hour
-  limits and a voucher), unknown bookings, refusals and a prompt injection. I changed
+- `eval/questions.yaml`, 20 questions: documents, price arithmetic, refunds (including exact 48 and 24 hour
+  limits, a voucher and a follow-up question), unknown bookings, refusals and a prompt injection. I changed
   the agent while looking at these results, so this score is too kind.
 - `eval/holdout.yaml`, 12 questions written afterwards. Nothing was changed after running them, so this is
   the more honest score: `python -m eval.run_eval --questions eval/holdout.yaml --out eval/results-holdout.md`.
@@ -113,11 +114,11 @@ tested in `tests/test_eval.py`, because a check that cannot fail proves nothing.
 
 Final scores, in `eval/results.md` and `eval/results-holdout.md` for `gpt-5.4-mini`:
 
-| Model | Tuning set (3 runs, of 19) | Unseen set (2 runs, of 12) |
+| Model | Tuning set (3 runs, of 20) | Unseen set (2 runs, of 12) |
 | --- | --- | --- |
-| `gpt-5.4-mini` (chosen) | 19, 19, 19 | **10, 10** |
-| `gpt-5.4-nano` | 19, 19, 19 | 8, 10 |
-| `gpt-4o-mini` | 17, 17, 18 (of 20, with one more question that needs memory) | 8, 9 |
+| `gpt-5.4-mini` (chosen) | 20, 20, 20 | **10, 10** |
+| `gpt-5.4-nano` | 20, 20, 20 | 8, 10 |
+| `gpt-4o-mini` | 17, 17, 18 | 8, 9 |
 
 **What still fails on the unseen set with `gpt-5.4-mini` (not fixed, on purpose):**
 
@@ -169,7 +170,7 @@ write the code and tests, and draft this document. Its output needed changes:
   instead of only the score.
 - **A prompt change that made things worse.** A suggested prompt rule for the season turned an imprecise
   answer into a confidently wrong one. The evaluation showed it, and the fix was a tool instead.
-- **A score that looked better than it was.** After tuning, the score was 19 of 19. That was measured on the
+- **A score that looked better than it was.** After tuning, the score was 20 of 20. That was measured on the
   questions used for tuning, so I added the unseen set, which scored 10 of 12.
 - **A recommendation I did not follow.** The assistant advised against a framework. I chose LangGraph
   because I have some experience with it, and kept the tools free of it so the decision stays cheap to change.
@@ -184,7 +185,7 @@ write the code and tests, and draft this document. Its output needed changes:
   is short, and queries have to be in English (the prompt tells the model to translate them).
 - No tool covers late return fees, so the model calculates those itself.
 - The current date is fixed and the time zone is a fixed UTC+02:00, as the assignment asks.
-- There is no memory: every question is answered on its own, so a follow-up has to repeat the booking number.
+- Memory lasts only as long as the process.
 
 ## What I would do next
 

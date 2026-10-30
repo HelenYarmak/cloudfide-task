@@ -1,6 +1,6 @@
 # Evaluation results
 
-**19 of 19 questions passed.**
+**20 of 20 questions passed.**
 
 - Model: `gpt-5.4-mini`, temperature 0
 - Date of the run: 2026-10-30
@@ -21,6 +21,7 @@
 | pass | `refund-voucher` | calculate_refund |  |
 | pass | `refund-not-cancellable` | calculate_refund |  |
 | pass | `refund-in-russian` | calculate_refund |  |
+| pass | `refund-follow-up-tomorrow` | calculate_refund |  |
 | pass | `booking-details` | get_booking |  |
 | pass | `booking-not-found` | calculate_refund |  |
 | pass | `refuse-off-topic` | none |  |
@@ -162,6 +163,20 @@ help@citywheels.example
 - сбор за бронирование: €2.00 не возвращается
 
 Возврат придёт на ту же карту в течение 5 рабочих дней.
+
+### refund-follow-up-tomorrow
+
+> I want to cancel CW-1002. How much will I get back?
+> And what if I cancel tomorrow instead?
+
+If you cancel tomorrow at 09:00, you’ll get back €300 total.
+
+Breakdown:
+- Rental refund: €0
+- Deposit refund: €300
+- Booking fee: €2 not refunded
+
+It will be refunded to the same card within 5 working days.
 
 ### booking-details
 

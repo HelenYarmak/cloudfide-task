@@ -31,7 +31,7 @@ EUR_AMOUNT = re.compile(
 @dataclass
 class CaseResult:
     id: str
-    question: str
+    questions: list[str]
     answer: str
     tools: list[str]
     failures: list[str]
@@ -89,18 +89,22 @@ def check(case: dict, answer: str, tools: list[str], sources: list[str]) -> list
 
 
 def run_case(graph, case: dict) -> CaseResult:
-    question = case["question"]
+    questions = case["question"] if isinstance(case["question"], list) else [case["question"]]
     tools: list[str] = []
+    sources = list(questions)
     reply = AgentReply("")
     try:
-        reply = ask(graph, question)
+        for question in questions:
+            reply = ask(graph, question, thread_id=case["id"])
+            sources += reply.tool_results
+        # Only the tools of the last question count, so a follow-up has to call them again.
         tools = [call["name"] for call in reply.tool_calls]
-        failures = check(case, reply.answer, tools, [question, *reply.tool_results])
+        failures = check(case, reply.answer, tools, sources)
     except (openai.AuthenticationError, openai.NotFoundError):
         raise  # A wrong key or model name says nothing about the agent: stop the whole run.
     except openai.OpenAIError as error:
         failures = [f"model error: {error}"]
-    return CaseResult(case["id"], question, reply.answer, tools, failures)
+    return CaseResult(case["id"], questions, reply.answer, tools, failures)
 
 
 def _cell(text: str) -> str:
@@ -130,7 +134,8 @@ def render_results(results: list[CaseResult], model: str) -> str:
     lines += ["", "## Answers", ""]
     for r in results:
         lines += [f"### {r.id}", ""]
-        lines += [f"> {_cell(r.question)}", "", r.answer or "(no answer)", ""]
+        lines += [f"> {_cell(q)}" for q in r.questions]
+        lines += ["", r.answer or "(no answer)", ""]
     return "\n".join(lines)
 
 

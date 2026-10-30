@@ -1,12 +1,12 @@
 # Test questions for eval/run_eval.py. Every field except id and question is optional.
 #
-#   question:        the question
+#   question:        one question, or a list of questions asked in one conversation
 #   tools:           tools that must have been called; a list means any one of these
 #   forbidden_tools: tools that must not have been called
-#   amounts:         numbers that must be in the answer ("340" does not match "3400")
-#   contains:        text that must be in the answer; a list means any one of these
-#   not_contains:    regular expressions that must not match the answer
-#   refuse:          true means the answer must give the staff contact
+#   amounts:         numbers that must be in the last answer ("340" does not match "3400")
+#   contains:        text that must be in the last answer; a list means any one of these
+#   not_contains:    regular expressions that must not match the last answer
+#   refuse:          true means the last answer must give the staff contact
 #
 # All cases also check that every EUR amount in the answer comes from a tool or the customer.
 
@@ -79,6 +79,13 @@
   question: Сколько мне вернут, если я отменю бронь CW-1001?
   tools: [calculate_refund]
   amounts: [90]
+
+- id: refund-follow-up-tomorrow
+  question:
+    - I want to cancel CW-1002. How much will I get back?
+    - And what if I cancel tomorrow instead?
+  tools: [calculate_refund]
+  amounts: [300]
 
 # --- Bookings ---
 - id: booking-details

@@ -1,9 +1,10 @@
-"""Command line: `python -m agent.cli "question"`, or no argument to ask several questions."""
+"""Command line: `python -m agent.cli "question"`, or no argument for a conversation."""
 
 from __future__ import annotations
 
 import os
 import sys
+import uuid
 
 import openai
 from dotenv import load_dotenv
@@ -21,10 +22,11 @@ def main() -> int:
         return 1
 
     graph = build_graph(create_llm())
+    thread_id = str(uuid.uuid4())
 
     try:
         if len(sys.argv) > 1:
-            print(ask(graph, " ".join(sys.argv[1:])).answer)
+            print(ask(graph, " ".join(sys.argv[1:]), thread_id).answer)
             return 0
 
         print("CityWheels help desk. Ask a question, or type 'exit' to leave.")
@@ -36,7 +38,11 @@ def main() -> int:
             if question.lower() in {"exit", "quit"}:
                 return 0
             if question:
-                print(f"\nCityWheels: {ask(graph, question).answer}")
+                reply = ask(graph, question, thread_id)
+                print(f"\nCityWheels: {reply.answer}")
+                if reply.stopped_early:
+                    # The stored history ends in unanswered tool calls: start clean.
+                    thread_id = str(uuid.uuid4())
     except openai.OpenAIError as error:
         print(f"The language model could not be reached: {error}")
         return 1

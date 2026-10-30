@@ -4,7 +4,7 @@ from itertools import count
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
 from agent.graph import ask, build_graph
@@ -126,3 +126,37 @@ def test_a_model_that_never_stops_is_cut_off():
     assert reply.stopped_early is True
     assert reply.answer == FALLBACK_ANSWER
     assert len(model.seen) == 8
+
+
+def test_messages_of_one_thread_are_remembered():
+    model = FakeModel([AIMessage("First."), AIMessage("Second.")])
+    graph = build_graph(model)
+
+    ask(graph, "About CW-1002", thread_id="a")
+    ask(graph, "And tomorrow?", thread_id="a")
+
+    questions = [m.content for m in model.seen[1] if isinstance(m, HumanMessage)]
+    assert questions == ["About CW-1002", "And tomorrow?"]
+
+
+def test_threads_do_not_share_memory():
+    model = FakeModel([AIMessage("First."), AIMessage("Second.")])
+    graph = build_graph(model)
+
+    ask(graph, "About CW-1002", thread_id="a")
+    ask(graph, "Someone else", thread_id="b")
+
+    questions = [m.content for m in model.seen[1] if isinstance(m, HumanMessage)]
+    assert questions == ["Someone else"]
+
+
+def test_reply_reports_only_the_tools_of_the_last_question():
+    model = FakeModel(
+        [call("get_booking", booking_id="CW-1001"), AIMessage("One."), AIMessage("Two.")]
+    )
+    graph = build_graph(model)
+
+    ask(graph, "First", thread_id="a")
+    reply = ask(graph, "Second", thread_id="a")
+
+    assert reply.tool_calls == []

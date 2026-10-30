@@ -84,6 +84,13 @@ def test_run_case_with_a_fake_model():
     assert result.tools == ["calculate_refund"]
 
 
+def test_run_case_with_a_follow_up_checks_the_last_answer():
+    model = FakeModel([AIMessage("First: 340."), AIMessage("Second: 300.")])
+    case = {"id": "x", "question": ["One?", "Two?"], "amounts": [300]}
+
+    assert run_case(build_graph(model), case).passed
+
+
 def test_run_case_reports_a_model_error_as_a_failure():
     class BrokenModel(FakeModel):
         def _generate(self, *args, **kwargs):
