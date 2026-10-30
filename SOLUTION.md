@@ -185,7 +185,6 @@ calculation. The model can still vary between runs even at temperature 0, and th
   synonym such as "location"), a `calculate_late_fee` tool, and a prompt rule for late booking changes. Then
   write new unseen questions.
 - Make the weak checks stricter, starting with `change-too-late` and `take-bike-abroad`.
-- Add a GitHub Actions workflow that runs the tests on every push.
 - Find out why `gpt-4o-mini` answers in Polish, instead of only avoiding that model.
 - Add an LLM judge for answers that text checks cannot judge well.
 - Use many more questions, so that differences between models mean something.
