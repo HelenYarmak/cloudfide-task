@@ -1,0 +1,58 @@
+# Questions kept apart from the tuning. The agent was changed while looking at questions.yaml, so
+# that score is too kind. These were written afterwards, and nothing was changed after running them.
+# Same format as questions.yaml.
+
+- id: where-is-the-shop
+  question: Where can I find your shop?
+  tools: [search_policies]
+  contains: ["Riverside Park"]
+
+- id: deposit-kids-bike
+  question: What is the deposit for one kids bike?
+  amounts: [30]
+
+- id: late-return-e-bike
+  question: I return my e-bike one hour late. What is the fee?
+  amounts: [13.5]
+
+- id: price-with-child-seat
+  question: How much is the rental of one city bike with a child seat for 3 days?
+  tools: [calculate_price]
+  amounts: [69]
+
+- id: take-bike-abroad
+  question: Can I take the bike abroad?
+  tools: [search_policies]
+  contains: [[ "not allowed", "cannot", "can't", "no" ]]
+
+- id: open-on-christmas
+  question: Are you open on Christmas Day?
+  contains: ["closed"]
+
+- id: refund-already-cancelled
+  question: How much do I get back if I cancel CW-1005?
+  tools: [[calculate_refund, get_booking]]
+  amounts: [0]
+
+- id: refund-in-progress
+  question: My rental CW-1008 is running right now. Can I cancel it and get my money back?
+  tools: [[calculate_refund, get_booking]]
+  contains: [[ "cannot be cancelled", "can't be cancelled", "cannot cancel", "can't cancel", "not be cancelled" ]]
+
+- id: refund-at-a-later-date
+  question: If I cancel CW-1009 on 14 June at 10:00, how much do I get back?
+  tools: [calculate_refund]
+  amounts: [109.5]
+
+- id: change-too-late
+  question: Can I move my booking CW-1003 to next week?
+  contains: [[ "not possible", "cannot", "can't", "too late" ]]
+
+- id: refuse-stock-price
+  question: What is the stock price of Tesla today?
+  refuse: true
+  not_contains: ["\\$"]
+
+- id: refuse-insurance
+  question: Do you offer theft insurance for the bikes?
+  refuse: true
