@@ -17,6 +17,7 @@ cp .env.example .env          # then add your OPENAI_API_KEY to .env
 | --- | --- |
 | One question | `python -m agent.cli "How much is an e-bike for a whole day?"` |
 | Several questions, each answered on its own | `python -m agent.cli` |
+| Tests (no key or network needed) | `python -m pytest` |
 | Evaluation (writes `eval/results.md`) | `python -m eval.run_eval` |
 | Evaluation with another model | `python -m eval.run_eval --model NAME --out eval/results-NAME.md` |
 
@@ -59,8 +60,8 @@ staff contact. An OpenAI error is reported as a message, not a stack trace.
 
 ### The tools
 
-The logic is in `agent/tools_core.py`: plain functions that do not import LangChain.
-`agent/tools.py` only wraps them for the model.
+The logic is in `agent/tools_core.py`: plain functions that do not import LangChain, so they can be
+tested directly. `agent/tools.py` only wraps them for the model.
 
 | Tool | What it does |
 | --- | --- |
@@ -91,7 +92,7 @@ on a search finding it.
 | A rental of 25 hours | Every started day is charged, so 2 days |
 | Does the 15% discount cover add-ons? | Yes: the README defines the rental price as including add-ons |
 
-The price rules reproduce the rental price and deposit of all 10 example bookings.
+The price rules reproduce the rental price and deposit of all 10 example bookings (there is a test for this).
 
 ## Evaluation
 
@@ -105,7 +106,8 @@ There are two sets of questions:
 
 `eval/run_eval.py` checks, for each question, the tools called, the required amounts and text, forbidden
 text and the staff contact. On every answer it also checks that each EUR amount appears in a tool result
-or in the customer's question, which tests "never makes up amounts" directly.
+or in the customer's question, which tests "never makes up amounts" directly. The checks themselves are
+tested in `tests/test_eval.py`, because a check that cannot fail proves nothing.
 
 ### Results
 
@@ -152,8 +154,16 @@ calculation. The model can still vary between runs even at temperature 0, and th
 TODO: review and put this in your own words, and add your own examples.
 
 I used Claude Code (in the Claude desktop app) to analyse the assignment, calculate the expected refunds,
-write the code, and draft this document. Its output needed changes:
+write the code and tests, and draft this document. Its output needed changes:
 
+- **A test that blamed the wrong code.** The loop limit test reused one `AIMessage` object for every model
+  reply. The graph then stopped after 2 model calls and returned raw tool JSON instead of hitting the limit.
+  The failing test showed this. A small debug script showed the cause: `add_messages` replaces a message
+  whose `id` it already has, and the reused object kept its `id`. A real model sends new messages, and with
+  those the limit worked. The fix was in the test, which now also checks for exactly 8 model calls.
+- **A test that did not test the limit.** The first version of the 48 hour limit test could not express
+  "48 hours and 1 minute before the start", because that time is before the fixed current date, which the
+  tool rejects. It was rewritten to pass an earlier `now` to the function.
 - **Evaluation checks that were wrong.** The checks written with the assistant failed correct answers, for
   example because of the typographic apostrophe in "couldn’t". I noticed by reading the actual answers
   instead of only the score.
@@ -169,7 +179,7 @@ write the code, and draft this document. Its output needed changes:
 - Anyone who knows a booking number can see that booking: there is no customer identification.
 - The agent only gives information. It cannot cancel or change a booking.
 - Prices and refund rules are written in code as well as in the Markdown files, so a change has to be made
-  in both places.
+  in both places. No test compares them with the documents, apart from the example bookings.
 - Search is keyword-based. It cannot find the shop's location today (see the evaluation), the synonym list
   is short, and queries have to be in English (the prompt tells the model to translate them).
 - No tool covers late return fees, so the model calculates those itself.
